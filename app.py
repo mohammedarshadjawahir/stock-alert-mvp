@@ -5,9 +5,9 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 # --- Gmail Settings ---
-EMAIL_ADDRESS = "your_email@gmail.com"   # replace with your Gmail
-EMAIL_PASSWORD = "your_app_password"     # use App Password (not normal password)
-TO_EMAIL = "friend_email@gmail.com"      # where to send alerts
+EMAIL_ADDRESS = "arshadvoyager@gmail.com"   # replace with your Gmail
+EMAIL_PASSWORD = "lqxd qnng sxms hdon"     # use App Password (not normal password)
+TO_EMAIL = ""      # where to send alerts
 
 def send_email_alert(stock, current_price, change_percent, threshold):
     subject = f"📈 Stock Alert: {stock}"
