@@ -1,56 +1,62 @@
-# app.py  -- Streamlit Stock Alert MVP
 import streamlit as st
 import yfinance as yf
-import time
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
-st.set_page_config(page_title="Stock Pop-up Alerts", page_icon="📈", layout="centered")
-st.title("📈 Stock Pop-up Alerts — MVP")
+# Function to send Gmail alert
+def send_email_alert(receiver_email, stock_symbol, current_price, target_price):
+    sender_email = "your_email@gmail.com"
+    app_password = "your_app_password_here"  # Use 16-digit App Password
 
-# --- Controls
-symbol = st.text_input("Ticker (e.g., AAPL, TSLA, INFY.NS)", value="AAPL").upper()
-threshold = st.number_input("Alert when move is at least (%)", value=0.5, step=0.1, min_value=0.1)
-refresh_sec = st.number_input("Refresh every (sec)", value=5, step=1, min_value=2)
+    subject = f"Stock Alert: {stock_symbol}"
+    body = f"""
+    Alert! 📈
 
-# Initialize session state
-if "prev_price" not in st.session_state:
-    st.session_state.prev_price = None
+    Stock {stock_symbol} has reached the target price.
 
-# helper to get latest price using yfinance
-def get_price(ticker: str):
+    Current Price: {current_price}
+    Target Price: {target_price}
+
+    Check your trading app now!
+    """
+
+    msg = MIMEMultipart()
+    msg["From"] = sender_email
+    msg["To"] = receiver_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+
     try:
-        t = yf.Ticker(ticker)
-        hist = t.history(period="1d", interval="1m")
-        if hist is None or hist.empty:
-            return None
-        return float(hist["Close"].dropna().iloc[-1])
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(sender_email, app_password)
+        server.sendmail(sender_email, receiver_email, msg.as_string())
+        server.quit()
+        return "✅ Email sent successfully!"
     except Exception as e:
-        return None
+        return f"❌ Error sending email: {e}"
 
-# show current / previous
-latest = get_price(symbol)
-prev = st.session_state.prev_price
+# Streamlit UI
+st.title("📊 Stock Price Alert with Email Notification")
 
-col1, col2 = st.columns(2)
-with col1:
-    st.subheader("Current Price")
-    st.write(f"{latest:.6f}" if latest else "—")
-with col2:
-    st.subheader("Previous Price")
-    st.write(f"{prev:.6f}" if prev else "—")
+stock_symbol = st.text_input("Enter Stock Symbol (e.g. RELIANCE.NS, TCS.NS, INFY.NS)", "RELIANCE.NS")
+target_price = st.number_input("Enter Target Price", value=2500.0)
+receiver_email = st.text_input("Enter Your Email to Receive Alert")
 
-# alert logic
-if latest is not None and prev is not None and prev > 0:
-    pct = (latest - prev) / prev * 100
-    if pct >= threshold:
-        st.toast(f"✅ {symbol} UP {pct:.2f}% → {latest:.4f}", icon="✅")
-    elif pct <= -threshold:
-        st.toast(f"⚠️ {symbol} DOWN {pct:.2f}% → {latest:.4f}", icon="⚠️")
+if st.button("Check Price"):
+    stock = yf.Ticker(stock_symbol)
+    data = stock.history(period="1d", interval="1m")
 
-# update prev
-if latest is not None:
-    st.session_state.prev_price = latest
+    if not data.empty:
+        current_price = data["Close"].iloc[-1]
+        st.write(f"📌 Current Price of {stock_symbol}: **{current_price:.2f}**")
 
-# auto-refresh loop
-time.sleep(int(refresh_sec))
-st.rerun()
-
+        if current_price >= target_price:
+            st.success(f"🎉 Target reached! Sending email alert...")
+            result = send_email_alert(receiver_email, stock_symbol, current_price, target_price)
+            st.write(result)
+        else:
+            st.info(f"Target not yet reached. Current: {current_price:.2f}, Target: {target_price:.2f}")
+    else:
+        st.error("⚠️ Could not fetch stock data. Check symbol or market hours.")
