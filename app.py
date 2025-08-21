@@ -1,62 +1,63 @@
-import streamlit as st
 import yfinance as yf
+import streamlit as st
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-# Function to send Gmail alert
-def send_email_alert(receiver_email, stock_symbol, current_price, target_price):
-    sender_email = "your_email@gmail.com"
-    app_password = "your_app_password_here"  # Use 16-digit App Password
+# --- Gmail Settings ---
+EMAIL_ADDRESS = "your_email@gmail.com"   # replace with your Gmail
+EMAIL_PASSWORD = "your_app_password"     # use App Password (not normal password)
+TO_EMAIL = "friend_email@gmail.com"      # where to send alerts
 
-    subject = f"Stock Alert: {stock_symbol}"
+def send_email_alert(stock, current_price, change_percent, threshold):
+    subject = f"📈 Stock Alert: {stock}"
     body = f"""
-    Alert! 📈
-
-    Stock {stock_symbol} has reached the target price.
-
-    Current Price: {current_price}
-    Target Price: {target_price}
-
-    Check your trading app now!
+    Alert for {stock} 🚨
+    Current Price: {current_price:.2f}
+    Change: {change_percent:.2f}%
+    Threshold: {threshold}%
     """
 
     msg = MIMEMultipart()
-    msg["From"] = sender_email
-    msg["To"] = receiver_email
+    msg["From"] = EMAIL_ADDRESS
+    msg["To"] = TO_EMAIL
     msg["Subject"] = subject
     msg.attach(MIMEText(body, "plain"))
 
     try:
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
-        server.login(sender_email, app_password)
-        server.sendmail(sender_email, receiver_email, msg.as_string())
+        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+        server.send_message(msg)
         server.quit()
-        return "✅ Email sent successfully!"
+        return "✅ Email Sent!"
     except Exception as e:
-        return f"❌ Error sending email: {e}"
+        return f"❌ Error: {e}"
 
-# Streamlit UI
-st.title("📊 Stock Price Alert with Email Notification")
 
-stock_symbol = st.text_input("Enter Stock Symbol (e.g. RELIANCE.NS, TCS.NS, INFY.NS)", "RELIANCE.NS")
-target_price = st.number_input("Enter Target Price", value=2500.0)
-receiver_email = st.text_input("Enter Your Email to Receive Alert")
+# --- Streamlit UI ---
+st.title("📊 Stock Percentage Alert System (India & Global)")
 
-if st.button("Check Price"):
+stock_symbol = st.text_input("Enter Stock Symbol (e.g. RELIANCE.BO, TCS.NS, AAPL)", "RELIANCE.BO")
+threshold = st.number_input("Alert when % change is greater than", value=2.0, step=0.5)
+
+if st.button("Check Now"):
     stock = yf.Ticker(stock_symbol)
-    data = stock.history(period="1d", interval="1m")
+    hist = stock.history(period="1d", interval="1m")
 
-    if not data.empty:
-        current_price = data["Close"].iloc[-1]
-        st.write(f"📌 Current Price of {stock_symbol}: **{current_price:.2f}**")
+    if not hist.empty:
+        current_price = hist["Close"].iloc[-1]
+        open_price = hist["Open"].iloc[0]
+        change_percent = ((current_price - open_price) / open_price) * 100
 
-        if current_price >= target_price:
-            st.success(f"🎉 Target reached! Sending email alert...")
-            result = send_email_alert(receiver_email, stock_symbol, current_price, target_price)
+        st.write(f"📍 Current Price: {current_price:.2f}")
+        st.write(f"📈 Change: {change_percent:.2f}%")
+
+        if abs(change_percent) >= threshold:
+            st.success(f"🚨 Alert! {stock_symbol} moved {change_percent:.2f}%")
+            result = send_email_alert(stock_symbol, current_price, change_percent, threshold)
             st.write(result)
         else:
-            st.info(f"Target not yet reached. Current: {current_price:.2f}, Target: {target_price:.2f}")
+            st.info(f"No alert yet. Change is {change_percent:.2f}% (< {threshold}%)")
     else:
-        st.error("⚠️ Could not fetch stock data. Check symbol or market hours.")
+        st.error("❌ Could not fetch stock data. Try again later.")
