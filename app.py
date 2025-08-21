@@ -52,4 +52,5 @@ if latest is not None:
 
 # auto-refresh loop
 time.sleep(int(refresh_sec))
-st.experimental_rerun()
+st.rerun()
+
